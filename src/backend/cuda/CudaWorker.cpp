@@ -6,8 +6,8 @@
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
  * Copyright 2018      Lee Clagett <https://github.com/vtnerd>
- * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
- * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2018-2020 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2020 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@
 #include "backend/cuda/CudaWorker.h"
 #include "backend/common/Tags.h"
 #include "backend/cuda/runners/CudaCnRunner.h"
+#include "backend/cuda/wrappers/CudaDevice.h"
 #include "base/io/log/Log.h"
 #include "base/tools/Chrono.h"
 #include "core/Miner.h"
@@ -36,6 +37,16 @@
 
 #ifdef XMRIG_ALGO_RANDOMX
 #   include "backend/cuda/runners/CudaRxRunner.h"
+#endif
+
+
+#ifdef XMRIG_ALGO_ASTROBWT
+#   include "backend/cuda/runners/CudaAstroBWTRunner.h"
+#endif
+
+
+#ifdef XMRIG_ALGO_KAWPOW
+#   include "backend/cuda/runners/CudaKawPowRunner.h"
 #endif
 
 
@@ -61,7 +72,8 @@ static inline uint32_t roundSize(uint32_t intensity) { return kReserveCount / in
 xmrig::CudaWorker::CudaWorker(size_t id, const CudaLaunchData &data) :
     Worker(id, data.thread.affinity(), -1),
     m_algorithm(data.algorithm),
-    m_miner(data.miner)
+    m_miner(data.miner),
+    m_deviceIndex(data.device.index())
 {
     switch (m_algorithm.family()) {
     case Algorithm::RANDOM_X:
@@ -71,6 +83,18 @@ xmrig::CudaWorker::CudaWorker(size_t id, const CudaLaunchData &data) :
         break;
 
     case Algorithm::ARGON2:
+        break;
+
+    case Algorithm::ASTROBWT:
+#       ifdef XMRIG_ALGO_ASTROBWT
+        m_runner = new CudaAstroBWTRunner(id, data);
+#       endif
+        break;
+
+    case Algorithm::KAWPOW:
+#       ifdef XMRIG_ALGO_KAWPOW
+        m_runner = new CudaKawPowRunner(id, data);
+#       endif
         break;
 
     default:
@@ -96,6 +120,14 @@ xmrig::CudaWorker::~CudaWorker()
 }
 
 
+void xmrig::CudaWorker::jobEarlyNotification(const Job& job)
+{
+    if (m_runner) {
+        m_runner->jobEarlyNotification(job);
+    }
+}
+
+
 bool xmrig::CudaWorker::selfTest()
 {
     return m_runner != nullptr;
@@ -104,7 +136,7 @@ bool xmrig::CudaWorker::selfTest()
 
 size_t xmrig::CudaWorker::intensity() const
 {
-    return m_runner ? m_runner->intensity() : 0;
+    return m_runner ? m_runner->roundSize() : 0;
 }
 
 
@@ -127,7 +159,7 @@ void xmrig::CudaWorker::start()
         }
 
         while (!Nonce::isOutdated(Nonce::CUDA, m_job.sequence())) {
-            uint32_t foundNonce[10] = { 0 };
+            uint32_t foundNonce[16] = { 0 };
             uint32_t foundCount     = 0;
 
             if (!m_runner->run(*m_job.nonce(), &foundCount, foundNonce)) {
@@ -135,11 +167,13 @@ void xmrig::CudaWorker::start()
             }
 
             if (foundCount) {
-                JobResults::submit(m_job.currentJob(), foundNonce, foundCount);
+                JobResults::submit(m_job.currentJob(), foundNonce, foundCount, m_deviceIndex);
             }
 
             const size_t batch_size = intensity();
-            m_job.nextRound(roundSize(batch_size), batch_size);
+            if (!Nonce::isOutdated(Nonce::CUDA, m_job.sequence()) && !m_job.nextRound(roundSize(batch_size), batch_size)) {
+                JobResults::done(m_job.currentJob());
+            }
 
             storeStats();
             std::this_thread::yield();
@@ -161,7 +195,7 @@ bool xmrig::CudaWorker::consumeJob()
     const size_t batch_size = intensity();
     m_job.add(m_miner->job(), roundSize(batch_size) * batch_size, Nonce::CUDA);
 
-    return m_runner->set(m_job.currentJob(), m_job.blob());;
+    return m_runner->set(m_job.currentJob(), m_job.blob());
 }
 
 
@@ -171,7 +205,7 @@ void xmrig::CudaWorker::storeStats()
         return;
     }
 
-    m_count += intensity();
+    m_count += m_runner ? m_runner->processedHashes() : 0;
 
     Worker::storeStats();
 }

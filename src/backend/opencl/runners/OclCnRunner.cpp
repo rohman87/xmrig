@@ -5,8 +5,8 @@
  * Copyright 2014-2016 Wolf9466    <https://github.com/OhGodAPet>
  * Copyright 2016      Jay D Dee   <jayddee246@gmail.com>
  * Copyright 2017-2018 XMR-Stak    <https://github.com/fireice-uk>, <https://github.com/psychocrypt>
- * Copyright 2018-2019 SChernykh   <https://github.com/SChernykh>
- * Copyright 2016-2019 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
+ * Copyright 2018-2020 SChernykh   <https://github.com/SChernykh>
+ * Copyright 2016-2020 XMRig       <https://github.com/xmrig>, <support@xmrig.com>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -24,7 +24,6 @@
 
 
 #include "backend/opencl/runners/OclCnRunner.h"
-
 #include "backend/opencl/kernels/Cn0Kernel.h"
 #include "backend/opencl/kernels/Cn1Kernel.h"
 #include "backend/opencl/kernels/Cn2Kernel.h"
@@ -123,10 +122,16 @@ void xmrig::OclCnRunner::set(const Job &job, uint8_t *blob)
         throw std::length_error("job size too big");
     }
 
-    blob[job.size()] = 0x01;
-    memset(blob + job.size() + 1, 0, Job::kMaxBlobSize - job.size() - 1);
+    const int inlen = static_cast<int>(job.size() + 136 - (job.size() % 136));
 
-    enqueueWriteBuffer(m_input, CL_TRUE, 0, Job::kMaxBlobSize, blob);
+    blob[job.size()] = 0x01;
+    memset(blob + job.size() + 1, 0, inlen - job.size() - 1);
+
+    blob[inlen - 1] |= 0x80;
+
+    enqueueWriteBuffer(m_input, CL_TRUE, 0, inlen, blob);
+
+    m_cn0->setArg(1, sizeof(int), &inlen);
 
     if (m_algorithm == Algorithm::CN_R && m_height != job.height()) {
         delete m_cn1;
@@ -153,7 +158,7 @@ void xmrig::OclCnRunner::build()
     OclBaseRunner::build();
 
     m_cn0 = new Cn0Kernel(m_program);
-    m_cn0->setArgs(m_input, m_scratchpads, m_states, m_intensity);
+    m_cn0->setArgs(m_input, 0, m_scratchpads, m_states, m_intensity);
 
     m_cn2 = new Cn2Kernel(m_program);
     m_cn2->setArgs(m_scratchpads, m_states, m_branches, m_intensity);

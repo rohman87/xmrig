@@ -28,20 +28,21 @@
 #include <thread>
 
 
+#include "core/Miner.h"
+#include "3rdparty/rapidjson/document.h"
 #include "backend/common/Hashrate.h"
 #include "backend/cpu/Cpu.h"
 #include "backend/cpu/CpuBackend.h"
 #include "base/io/log/Log.h"
+#include "base/io/log/Tags.h"
 #include "base/kernel/Platform.h"
 #include "base/net/stratum/Job.h"
 #include "base/tools/Object.h"
 #include "base/tools/Timer.h"
 #include "core/config/Config.h"
 #include "core/Controller.h"
-#include "core/Miner.h"
 #include "crypto/common/Nonce.h"
 #include "crypto/rx/Rx.h"
-#include "rapidjson/document.h"
 #include "version.h"
 
 
@@ -63,6 +64,11 @@
 
 #ifdef XMRIG_ALGO_RANDOMX
 #   include "crypto/rx/RxConfig.h"
+#endif
+
+
+#ifdef XMRIG_ALGO_ASTROBWT
+#   include "crypto/astrobwt/AstroBWT.h"
 #endif
 
 
@@ -237,6 +243,40 @@ public:
 #   endif
 
 
+    void printHashrate(bool details)
+    {
+        char num[16 * 4] = { 0 };
+        double speed[3] = { 0.0 };
+
+        for (auto backend : backends) {
+            const auto hashrate = backend->hashrate();
+            if (hashrate) {
+                speed[0] += hashrate->calc(Hashrate::ShortInterval);
+                speed[1] += hashrate->calc(Hashrate::MediumInterval);
+                speed[2] += hashrate->calc(Hashrate::LargeInterval);
+            }
+
+            backend->printHashrate(details);
+        }
+
+        double scale = 1.0;
+        const char* h = "H/s";
+
+        if ((speed[0] >= 1e6) || (speed[1] >= 1e6) || (speed[2] >= 1e6) || (maxHashrate[algorithm] >= 1e6)) {
+            scale = 1e-6;
+            h = "MH/s";
+        }
+
+        LOG_INFO("%s " WHITE_BOLD("speed") " 10s/60s/15m " CYAN_BOLD("%s") CYAN(" %s %s ") CYAN_BOLD("%s") " max " CYAN_BOLD("%s %s"),
+                 Tags::miner(),
+                 Hashrate::format(speed[0] * scale,                 num,          sizeof(num) / 4),
+                 Hashrate::format(speed[1] * scale,                 num + 16,     sizeof(num) / 4),
+                 Hashrate::format(speed[2] * scale,                 num + 16 * 2, sizeof(num) / 4), h,
+                 Hashrate::format(maxHashrate[algorithm] * scale,   num + 16 * 3, sizeof(num) / 4), h
+                 );
+    }
+
+
 #   ifdef XMRIG_ALGO_RANDOMX
     inline bool initRX() { return Rx::init(job, controller->config()->rx(), controller->config()->cpu()); }
 #   endif
@@ -272,6 +312,10 @@ xmrig::Miner::Miner(Controller *controller)
 
 #   ifdef XMRIG_ALGO_RANDOMX
     Rx::init(this);
+#   endif
+
+#   ifdef XMRIG_ALGO_ASTROBWT
+    astrobwt::init();
 #   endif
 
     controller->addListener(this);
@@ -340,7 +384,7 @@ void xmrig::Miner::execCommand(char command)
     switch (command) {
     case 'h':
     case 'H':
-        printHashrate(true);
+        d_ptr->printHashrate(true);
         break;
 
     case 'p':
@@ -351,6 +395,13 @@ void xmrig::Miner::execCommand(char command)
     case 'r':
     case 'R':
         setEnabled(true);
+        break;
+
+    case 'e':
+    case 'E':
+        for (auto backend : d_ptr->backends) {
+            backend->printHealth();
+        }
         break;
 
     default:
@@ -369,31 +420,6 @@ void xmrig::Miner::pause()
 
     Nonce::pause(true);
     Nonce::touch();
-}
-
-
-void xmrig::Miner::printHashrate(bool details)
-{
-    char num[8 * 4] = { 0 };
-    double speed[3] = { 0.0 };
-
-    for (IBackend *backend : d_ptr->backends) {
-        const Hashrate *hashrate = backend->hashrate();
-        if (hashrate) {
-            speed[0] += hashrate->calc(Hashrate::ShortInterval);
-            speed[1] += hashrate->calc(Hashrate::MediumInterval);
-            speed[2] += hashrate->calc(Hashrate::LargeInterval);
-        }
-
-        backend->printHashrate(details);
-    }
-
-    LOG_INFO(WHITE_BOLD("speed") " 10s/60s/15m " CYAN_BOLD("%s") CYAN(" %s %s ") CYAN_BOLD("H/s") " max " CYAN_BOLD("%s H/s"),
-             Hashrate::format(speed[0],                                 num,         sizeof(num) / 4),
-             Hashrate::format(speed[1],                                 num + 8,     sizeof(num) / 4),
-             Hashrate::format(speed[2],                                 num + 8 * 2, sizeof(num) / 4 ),
-             Hashrate::format(d_ptr->maxHashrate[d_ptr->algorithm],     num + 8 * 3, sizeof(num) / 4)
-             );
 }
 
 
@@ -489,10 +515,15 @@ void xmrig::Miner::onConfigChanged(Config *config, Config *previousConfig)
 
 void xmrig::Miner::onTimer(const Timer *)
 {
-    double maxHashrate = 0.0;
+    double maxHashrate          = 0.0;
+    const auto healthPrintTime  = d_ptr->controller->config()->healthPrintTime();
 
     for (IBackend *backend : d_ptr->backends) {
         backend->tick(d_ptr->ticks);
+
+        if (healthPrintTime && d_ptr->ticks && (d_ptr->ticks % (healthPrintTime * 2)) == 0 && backend->isEnabled()) {
+            backend->printHealth();
+        }
 
         if (backend->hashrate()) {
             maxHashrate += backend->hashrate()->calc(Hashrate::ShortInterval);
@@ -501,9 +532,9 @@ void xmrig::Miner::onTimer(const Timer *)
 
     d_ptr->maxHashrate[d_ptr->algorithm] = std::max(d_ptr->maxHashrate[d_ptr->algorithm], maxHashrate);
 
-    auto seconds = d_ptr->controller->config()->printTime();
-    if (seconds && (d_ptr->ticks % (seconds * 2)) == 0) {
-        printHashrate(false);
+    const auto printTime = d_ptr->controller->config()->printTime();
+    if (printTime && d_ptr->ticks && (d_ptr->ticks % (printTime * 2)) == 0) {
+        d_ptr->printHashrate(false);
     }
 
     d_ptr->ticks++;

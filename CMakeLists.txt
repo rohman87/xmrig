@@ -3,12 +3,14 @@ project(xmrig)
 
 option(WITH_LIBCPUID        "Enable libcpuid support" ON)
 option(WITH_HWLOC           "Enable hwloc support" ON)
-option(WITH_CN_LITE         "Enable CryptoNight-Lite algorithms family" OFF)
-option(WITH_CN_HEAVY        "Enable CryptoNight-Heavy algorithms family" OFF)
-option(WITH_CN_PICO         "Enable CryptoNight-Pico algorithm" OFF)
-option(WITH_CN_GPU          "Enable CryptoNight-GPU algorithm" OFF)
+
+option(WITH_CN_LITE         "Enable CryptoNight-Lite algorithms family" ON)
+option(WITH_CN_HEAVY        "Enable CryptoNight-Heavy algorithms family" ON)
+option(WITH_CN_PICO         "Enable CryptoNight-Pico algorithm" ON)
 option(WITH_RANDOMX         "Enable RandomX algorithms family" ON)
-option(WITH_ARGON2          "Enable Argon2 algorithms family" OFF)
+option(WITH_ARGON2          "Enable Argon2 algorithms family" ON)
+option(WITH_ASTROBWT        "Enable AstroBWT algorithms family" ON)
+option(WITH_KAWPOW          "Enable KawPow algorithms family" ON)
 option(WITH_HTTP            "Enable HTTP protocol support (client/server)" ON)
 option(WITH_DEBUG_LOG       "Enable debug log output" OFF)
 option(WITH_TLS             "Enable OpenSSL support" OFF)
@@ -16,9 +18,12 @@ option(WITH_ASM             "Enable ASM PoW implementations" ON)
 option(WITH_MSR             "Enable MSR mod & 1st-gen Ryzen fix" ON)
 option(WITH_ENV_VARS        "Enable environment variables support in config file" ON)
 option(WITH_EMBEDDED_CONFIG "Enable internal embedded JSON config" OFF)
-option(WITH_OPENCL          "Enable OpenCL backend" OFF)
-option(WITH_CUDA            "Enable CUDA backend" OFF)
-option(WITH_NVML            "Enable NVML (NVIDIA Management Library) support (only if CUDA backend enabled)" OFF)
+
+option(WITH_OPENCL          "Enable OpenCL backend" ON)
+option(WITH_CUDA            "Enable CUDA backend" ON)
+option(WITH_NVML            "Enable NVML (NVIDIA Management Library) support (only if CUDA backend enabled)" ON)
+option(WITH_ADL             "Enable ADL (AMD Display Library) or sysfs support (only if OpenCL backend enabled)" ON)
+
 option(WITH_STRICT_CACHE    "Enable strict checks for OpenCL cache" ON)
 option(WITH_INTERLEAVE_DEBUG_LOG "Enable debug log for threads interleave" OFF)
 
@@ -53,7 +58,6 @@ set(HEADERS
     src/net/JobResult.h
     src/net/JobResults.h
     src/net/Network.h
-    src/net/NetworkState.h
     src/net/strategies/DonateStrategy.h
     src/Summary.h
     src/version.h
@@ -76,10 +80,7 @@ set(HEADERS_CRYPTO
     src/crypto/cn/hash.h
     src/crypto/cn/skein_port.h
     src/crypto/cn/soft_aes.h
-    src/crypto/common/Algorithm.h
-    src/crypto/common/Coin.h
     src/crypto/common/HugePagesInfo.h
-    src/crypto/common/keccak.h
     src/crypto/common/MemoryPool.h
     src/crypto/common/Nonce.h
     src/crypto/common/portable/mm_malloc.h
@@ -103,7 +104,6 @@ set(SOURCES
     src/core/Miner.cpp
     src/net/JobResults.cpp
     src/net/Network.cpp
-    src/net/NetworkState.cpp
     src/net/strategies/DonateStrategy.cpp
     src/Summary.cpp
     src/xmrig.cpp
@@ -116,10 +116,7 @@ set(SOURCES_CRYPTO
     src/crypto/cn/c_skein.c
     src/crypto/cn/CnCtx.cpp
     src/crypto/cn/CnHash.cpp
-    src/crypto/common/Algorithm.cpp
-    src/crypto/common/Coin.cpp
     src/crypto/common/HugePagesInfo.cpp
-    src/crypto/common/keccak.cpp
     src/crypto/common/MemoryPool.cpp
     src/crypto/common/Nonce.cpp
     src/crypto/common/VirtualMemory.cpp
@@ -169,17 +166,18 @@ else()
     endif()
 endif()
 
-add_definitions(/D__STDC_FORMAT_MACROS)
-add_definitions(/DUNICODE)
+add_definitions(-DXMRIG_MINER_PROJECT)
+add_definitions(-D__STDC_FORMAT_MACROS -DUNICODE)
 
 find_package(UV REQUIRED)
 
 include(cmake/flags.cmake)
 include(cmake/randomx.cmake)
 include(cmake/argon2.cmake)
+include(cmake/astrobwt.cmake)
+include(cmake/kawpow.cmake)
 include(cmake/OpenSSL.cmake)
 include(cmake/asm.cmake)
-include(cmake/cn-gpu.cmake)
 
 if (WITH_CN_LITE)
     add_definitions(/DXMRIG_ALGO_CN_LITE)
@@ -209,8 +207,8 @@ if (WITH_DEBUG_LOG)
     add_definitions(/DAPP_DEBUG)
 endif()
 
-add_executable(${CMAKE_PROJECT_NAME} ${HEADERS} ${SOURCES} ${SOURCES_OS} ${SOURCES_CPUID} ${HEADERS_CRYPTO} ${SOURCES_CRYPTO} ${SOURCES_SYSLOG} ${TLS_SOURCES} ${XMRIG_ASM_SOURCES} ${CN_GPU_SOURCES})
-target_link_libraries(${CMAKE_PROJECT_NAME} ${XMRIG_ASM_LIBRARY} ${OPENSSL_LIBRARIES} ${UV_LIBRARIES} ${EXTRA_LIBS} ${CPUID_LIB} ${ARGON2_LIBRARY})
+add_executable(${CMAKE_PROJECT_NAME} ${HEADERS} ${SOURCES} ${SOURCES_OS} ${SOURCES_CPUID} ${HEADERS_CRYPTO} ${SOURCES_CRYPTO} ${SOURCES_SYSLOG} ${TLS_SOURCES} ${XMRIG_ASM_SOURCES})
+target_link_libraries(${CMAKE_PROJECT_NAME} ${XMRIG_ASM_LIBRARY} ${OPENSSL_LIBRARIES} ${UV_LIBRARIES} ${EXTRA_LIBS} ${CPUID_LIB} ${ARGON2_LIBRARY} ${ETHASH_LIBRARY})
 
 if (WIN32)
     add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD

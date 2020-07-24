@@ -1,3 +1,110 @@
+# v6.3.0
+- [#1771](https://github.com/xmrig/xmrig/pull/1771) Adopted new SSE2NEON and reduced ARM-specific changes.
+- [#1774](https://github.com/xmrig/xmrig/pull/1774) RandomX: Added new option `cache_qos` in `randomx` object for cache QoS support.
+- [#1777](https://github.com/xmrig/xmrig/pull/1777) Added support for upcoming Haven offshore fork.
+  - [#1780](https://github.com/xmrig/xmrig/pull/1780) CryptoNight OpenCL: fix for long input data.
+
+# v6.2.3
+- [#1745](https://github.com/xmrig/xmrig/pull/1745) AstroBWT: fixed OpenCL compilation on some systems.
+- [#1749](https://github.com/xmrig/xmrig/pull/1749) KawPow: optimized CPU share verification.
+- [#1752](https://github.com/xmrig/xmrig/pull/1752) RandomX: added error message when MSR mod fails.
+- [#1754](https://github.com/xmrig/xmrig/issues/1754) Fixed GPU health readings for pre Vega GPUs on Linux.
+- [#1756](https://github.com/xmrig/xmrig/issues/1756) Added results and connection reports.
+- [#1759](https://github.com/xmrig/xmrig/pull/1759) KawPow: fixed DAG initialization on slower AMD GPUs.
+- [#1763](https://github.com/xmrig/xmrig/pull/1763) KawPow: fixed rare duplicate share errors.
+- [#1766](https://github.com/xmrig/xmrig/pull/1766) RandomX: small speedup on Ryzen CPUs.
+
+# v6.2.2
+- [#1742](https://github.com/xmrig/xmrig/issues/1742) Fixed crash when use HTTP API.
+
+# v6.2.1
+- [#1726](https://github.com/xmrig/xmrig/issues/1726) Fixed detection of AVX2/AVX512.
+- [#1728](https://github.com/xmrig/xmrig/issues/1728) Fixed, 32 bit Windows builds was crash on start.
+- [#1729](https://github.com/xmrig/xmrig/pull/1729) Fixed KawPow crash on old CPUs.
+- [#1730](https://github.com/xmrig/xmrig/pull/1730) Improved displaying information for compute errors on GPUs.
+- [#1732](https://github.com/xmrig/xmrig/pull/1732) Fixed NiceHash disconnects for KawPow.
+- Fixed AMD GPU health (temperatures/power/clocks/fans) readings on Linux.
+
+# v6.2.0-beta
+- [#1717](https://github.com/xmrig/xmrig/pull/1717) Added new algorithm `cn/ccx` for Conceal.
+- [#1718](https://github.com/xmrig/xmrig/pull/1718) Fixed, linker on Linux was marking entire executable as having an executable stack.
+- [#1720](https://github.com/xmrig/xmrig/pull/1720) Fixed broken CryptoNight algorithms family with gcc 10.1.
+
+# v6.0.1-beta
+- [#1708](https://github.com/xmrig/xmrig/issues/1708) Added `title` option.
+- [#1711](https://github.com/xmrig/xmrig/pull/1711) [cuda] Print errors from KawPow DAG initialization.
+- [#1713](https://github.com/xmrig/xmrig/pull/1713) [cuda] Reduced memory usage for KawPow, minimum CUDA plugin version now is 6.1.0.
+
+# v6.0.0-beta
+- [#1694](https://github.com/xmrig/xmrig/pull/1694) Added support for KawPow algorithm (Ravencoin) on AMD/NVIDIA.
+- Removed previously deprecated `cn/gpu` algorithm.
+- Default donation level reduced to 1% but you still can increase it if you like.
+
+# v5.11.3
+- [#1718](https://github.com/xmrig/xmrig/pull/1718) Fixed, linker on Linux was marking entire executable as having an executable stack.
+- [#1720](https://github.com/xmrig/xmrig/pull/1720) Fixed broken CryptoNight algorithms family with gcc 10.1.
+
+# v5.11.2
+- [#1664](https://github.com/xmrig/xmrig/pull/1664) Improved JSON config error reporting.
+- [#1668](https://github.com/xmrig/xmrig/pull/1668) Optimized RandomX dataset initialization.
+- [#1675](https://github.com/xmrig/xmrig/pull/1675) Fixed cross-compiling on Linux.
+- Fixed memory leak in HTTP client.
+- Build [dependencies](https://github.com/xmrig/xmrig-deps/releases/tag/v4.1) updated to recent versions.
+- Compiler for Windows gcc builds updated to v10.1.
+
+# v5.11.1
+- [#1652](https://github.com/xmrig/xmrig/pull/1652) Up to 1% RandomX perfomance improvement on recent AMD CPUs.
+- [#1306](https://github.com/xmrig/xmrig/issues/1306) Fixed possible double connection to a pool.
+- [#1654](https://github.com/xmrig/xmrig/issues/1654) Fixed build with LibreSSL.
+
+# v5.11.0
+- **[#1632](https://github.com/xmrig/xmrig/pull/1632) Added AstroBWT CUDA support ([CUDA plugin](https://github.com/xmrig/xmrig-cuda) v3.0.0 or newer required).**
+- [#1605](https://github.com/xmrig/xmrig/pull/1605) Fixed AstroBWT OpenCL for NVIDIA GPUs.
+- [#1635](https://github.com/xmrig/xmrig/pull/1635) Added pooled memory allocation of RandomX VMs (+0.5% speedup on Zen2).
+- [#1641](https://github.com/xmrig/xmrig/pull/1641) RandomX JIT refactoring, smaller memory footprint and a bit faster overall.
+- [#1643](https://github.com/xmrig/xmrig/issues/1643) Fixed build on CentOS 7.
+
+# v5.10.0
+- [#1602](https://github.com/xmrig/xmrig/pull/1602) Added AMD GPUs support for AstroBWT algorithm.
+- [#1590](https://github.com/xmrig/xmrig/pull/1590) MSR mod automatically deactivated after switching from RandomX algorithms.
+- [#1592](https://github.com/xmrig/xmrig/pull/1592) Added AVX2 optimized code for AstroBWT algorithm.
+  - Added new config option `astrobwt-avx2` in `cpu` object and command line option `--astrobwt-avx2`.
+- [#1596](https://github.com/xmrig/xmrig/issues/1596) Major TLS (Transport Layer Security) subsystem update.
+  - Added new TLS options, please check [xmrig-proxy documentation](https://xmrig.com/docs/proxy/tls) for details.
+- `cn/gpu` algorithm now disabled by default and will be removed in next major (v6.x.x) release, no ETA for it right now.
+- Added command line option `--data-dir`.
+
+# v5.9.0
+- [#1578](https://github.com/xmrig/xmrig/pull/1578) Added new RandomKEVA algorithm for upcoming Kevacoin fork, as `"algo": "rx/keva"` or `"coin": "keva"`.
+- [#1584](https://github.com/xmrig/xmrig/pull/1584) Fixed invalid AstroBWT hashes after algorithm switching.
+- [#1585](https://github.com/xmrig/xmrig/issues/1585) Fixed build without HTTP support.
+- Added command line option `--astrobwt-max-size`.
+
+# v5.8.2
+- [#1580](https://github.com/xmrig/xmrig/pull/1580) AstroBWT algorithm 20-50% speedup.
+  - Added new option `astrobwt-max-size`.
+- [#1581](https://github.com/xmrig/xmrig/issues/1581) Fixed macOS build.
+
+# v5.8.1
+- [#1575](https://github.com/xmrig/xmrig/pull/1575) Fixed new block detection for DERO solo mining.
+
+# v5.8.0
+- [#1573](https://github.com/xmrig/xmrig/pull/1573) Added new AstroBWT algorithm for upcoming DERO fork, as `"algo": "astrobwt"` or `"coin": "dero"`.
+
+# v5.7.0
+- **Added SOCKS5 proxies support for Tor https://xmrig.com/docs/miner/tor.**
+- [#377](https://github.com/xmrig/xmrig-proxy/issues/377) Fixed duplicate jobs in daemon (solo) mining client.
+- [#1560](https://github.com/xmrig/xmrig/pull/1560) RandomX 0.3-0.4% speedup depending on CPU.
+- Fixed possible crashes in HTTP client.
+
+# v5.6.0
+- [#1536](https://github.com/xmrig/xmrig/pull/1536) Added workaround for new AMD GPU drivers.
+- [#1546](https://github.com/xmrig/xmrig/pull/1546) Fixed generic OpenCL code for AMD Navi GPUs.
+- [#1551](https://github.com/xmrig/xmrig/pull/1551) Added RandomX JIT for AMD Navi  GPUs.
+- Added health information for AMD GPUs (clocks/power/fan/temperature) via ADL (Windows) and sysfs (Linux).
+- Fixed possible nicehash nonce overflow in some conditions.
+- Fixed wrong OpenCL platform on macOS, option `platform` now ignored on this OS.
+
 # v5.5.3
 - [#1529](https://github.com/xmrig/xmrig/pull/1529) Fixed crash on Bulldozer CPUs.
 
